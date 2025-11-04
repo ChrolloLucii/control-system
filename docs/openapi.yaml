@@ -1,0 +1,753 @@
+openapi: 3.0.3
+info:
+  title: Control System API
+  description: |
+    Микросервисная система управления пользователями и заказами.
+    
+    ## Архитектура
+    - **Gateway** (порт 8080) - единая точка входа
+    - **User Service** (порт 3001) - управление пользователями
+    - **Order Service** (порт 3002) - управление заказами
+    
+    ## Аутентификация
+    Используется JWT Bearer токен в заголовке Authorization.
+    
+    Получить токен можно через `/api/v1/users/login`.
+    
+    ## Формат ответов
+    Все ответы возвращаются в едином формате:
+    ```json
+    {
+      "success": true,
+      "data": {...}
+    }
+    ```
+    или при ошибке:
+    ```json
+    {
+      "success": false,
+      "error": {
+        "code": "ERROR_CODE",
+        "message": "Error message"
+      }
+    }
+    ```
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+
+servers:
+  - url: http://localhost:8080
+    description: Gateway (Local Development)
+  - url: http://localhost:3001
+    description: User Service (Direct - для тестов)
+  - url: http://localhost:3002
+    description: Order Service (Direct - для тестов)
+
+tags:
+  - name: Users
+    description: Управление пользователями
+  - name: Orders
+    description: Управление заказами
+  - name: Health
+    description: Проверка состояния сервисов
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Проверка здоровья Gateway
+      description: Возвращает статус работы шлюза
+      responses:
+        '200':
+          description: Сервис работает
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: gateway
+
+  /api/v1/users/register:
+    post:
+      tags:
+        - Users
+      summary: Регистрация нового пользователя
+      description: Создаёт нового пользователя с ролью 'user'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Пользователь успешно создан
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/v1/users/login:
+    post:
+      tags:
+        - Users
+      summary: Вход в систему
+      description: Аутентификация пользователя и получение JWT токена
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Успешная аутентификация
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/LoginResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/users/profile:
+    get:
+      tags:
+        - Users
+      summary: Получить профиль текущего пользователя
+      description: Возвращает данные авторизованного пользователя
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Профиль пользователя
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    put:
+      tags:
+        - Users
+      summary: Обновить профиль
+      description: Обновляет данные текущего пользователя
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Профиль обновлён
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/users:
+    get:
+      tags:
+        - Users
+      summary: Получить список пользователей
+      description: Возвращает список пользователей с пагинацией и фильтрами. Только для администраторов.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Номер страницы
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Количество элементов на странице
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: role
+          in: query
+          description: Фильтр по роли
+          schema:
+            type: string
+            enum: [user, admin]
+      responses:
+        '200':
+          description: Список пользователей
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUsersResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /api/v1/orders:
+    post:
+      tags:
+        - Orders
+      summary: Создать заказ
+      description: Создаёт новый заказ для авторизованного пользователя
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: Заказ создан
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    get:
+      tags:
+        - Orders
+      summary: Получить заказы пользователя
+      description: Возвращает список заказов текущего пользователя с пагинацией и сортировкой
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Номер страницы
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Количество элементов на странице
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: sort
+          in: query
+          description: Сортировка
+          schema:
+            type: string
+            enum: [createdAt_desc, createdAt_asc, totalAmount_desc, totalAmount_asc]
+            default: createdAt_desc
+      responses:
+        '200':
+          description: Список заказов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOrdersResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/orders/{id}:
+    get:
+      tags:
+        - Orders
+      summary: Получить заказ по ID
+      description: Возвращает данные заказа. Доступно владельцу или администратору.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID заказа (UUID)
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Данные заказа
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Order'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    delete:
+      tags:
+        - Orders
+      summary: Отменить заказ
+      description: Отменяет заказ. Нельзя отменить завершённый заказ. Доступно владельцу или администратору.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID заказа (UUID)
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Заказ отменён
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/v1/orders/{id}/status:
+    put:
+      tags:
+        - Orders
+      summary: Обновить статус заказа
+      description: Изменяет статус заказа. Доступно владельцу или администратору.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID заказа (UUID)
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrderStatusRequest'
+      responses:
+        '200':
+          description: Статус обновлён
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT токен, полученный через /api/v1/users/login
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор пользователя
+        email:
+          type: string
+          format: email
+          description: Email пользователя
+        name:
+          type: string
+          description: Имя пользователя
+        roles:
+          type: array
+          items:
+            type: string
+            enum: [user, admin]
+          description: Роли пользователя
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата создания
+        updatedAt:
+          type: string
+          format: date-time
+          description: Дата обновления
+      example:
+        id: "123e4567-e89b-12d3-a456-426614174000"
+        email: "user@example.com"
+        name: "John Doe"
+        roles: ["user"]
+        createdAt: "2025-11-04T10:00:00Z"
+        updatedAt: "2025-11-04T10:00:00Z"
+
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - name
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email пользователя
+        password:
+          type: string
+          format: password
+          minLength: 6
+          description: Пароль (минимум 6 символов)
+        name:
+          type: string
+          minLength: 1
+          description: Имя пользователя
+      example:
+        email: "user@example.com"
+        password: "password123"
+        name: "John Doe"
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+      example:
+        email: "user@example.com"
+        password: "password123"
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT токен для аутентификации
+        user:
+          $ref: '#/components/schemas/User'
+      example:
+        token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        user:
+          id: "123e4567-e89b-12d3-a456-426614174000"
+          email: "user@example.com"
+          name: "John Doe"
+          roles: ["user"]
+
+    UpdateProfileRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+      example:
+        name: "John Smith"
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор заказа
+        userId:
+          type: string
+          format: uuid
+          description: ID пользователя
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+          description: Список товаров
+        status:
+          type: string
+          enum: [created, in_progress, completed, cancelled]
+          description: Статус заказа
+        totalAmount:
+          type: number
+          format: float
+          description: Общая сумма заказа
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      example:
+        id: "987e6543-e21b-12d3-a456-426614174000"
+        userId: "123e4567-e89b-12d3-a456-426614174000"
+        items:
+          - productName: "Laptop"
+            quantity: 1
+            price: 1500
+        status: "created"
+        totalAmount: 1500
+        createdAt: "2025-11-04T11:00:00Z"
+        updatedAt: "2025-11-04T11:00:00Z"
+
+    OrderItem:
+      type: object
+      required:
+        - productName
+        - quantity
+        - price
+      properties:
+        productName:
+          type: string
+          description: Название товара
+        quantity:
+          type: integer
+          minimum: 1
+          description: Количество
+        price:
+          type: number
+          format: float
+          minimum: 0
+          description: Цена за единицу
+      example:
+        productName: "Laptop"
+        quantity: 1
+        price: 1500
+
+    CreateOrderRequest:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/OrderItem'
+      example:
+        items:
+          - productName: "Laptop"
+            quantity: 1
+            price: 1500
+          - productName: "Mouse"
+            quantity: 2
+            price: 25
+
+    UpdateOrderStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [created, in_progress, completed, cancelled]
+      example:
+        status: "in_progress"
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          description: Данные ответа
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Код ошибки
+            message:
+              type: string
+              description: Сообщение об ошибке
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          description: Текущая страница
+        limit:
+          type: integer
+          description: Элементов на странице
+        totalPages:
+          type: integer
+          description: Всего страниц
+        totalItems:
+          type: integer
+          description: Всего элементов
+      example:
+        page: 1
+        limit: 10
+        totalPages: 3
+        totalItems: 25
+
+    PaginatedUsersResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    PaginatedOrdersResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Order'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+  responses:
+    ValidationError:
+      description: Ошибка валидации
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: "VALIDATION_ERROR"
+              message: "email is required"
+
+    UnauthorizedError:
+      description: Не авторизован
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: "UNAUTHORIZED"
+              message: "authorization header required"
+
+    ForbiddenError:
+      description: Доступ запрещён
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: "FORBIDDEN"
+              message: "admin access required"
+
+    NotFoundError:
+      description: Ресурс не найден
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: "NOT_FOUND"
+              message: "order not found"
+
+    RateLimitError:
+      description: Превышен лимит запросов
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: "RATE_LIMIT_EXCEEDED"
+              message: "too many requests"

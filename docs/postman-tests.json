@@ -1,0 +1,608 @@
+{
+	"info": {
+		"name": "Control System API - Test Suite",
+		"description": "Набор тестов для проверки функциональности системы (минимальные требования для оценки)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "userId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "orderId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "token2",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "userId2",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Тесты на оценку 3 - Пользователи",
+			"item": [
+				{
+					"name": "1. Успешная регистрация с валидными полями",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Статус 201 Created', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test('Ответ содержит success: true', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Ответ содержит созданного пользователя с ID', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.data).to.have.property('id');",
+									"    pm.expect(response.data).to.have.property('email');",
+									"    pm.expect(response.data).to.have.property('name');",
+									"    pm.expect(response.data.email).to.equal('test@example.com');",
+									"    pm.collectionVariables.set('userId', response.data.id);",
+									"});",
+									"",
+									"pm.test('Пароль не возвращается в ответе', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.data).to.not.have.property('password');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"Test User\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/register",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "register"]
+						}
+					}
+				},
+				{
+					"name": "2. Повторная регистрация с той же почтой",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Статус 400 Bad Request', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test('Ответ содержит success: false', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.success).to.be.false;",
+									"});",
+									"",
+									"pm.test('Ответ содержит описание ошибки', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.error).to.have.property('code');",
+									"    pm.expect(response.error).to.have.property('message');",
+									"    pm.expect(response.error.message).to.include('already exists');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"Test User\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/register",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "register"]
+						}
+					}
+				},
+				{
+					"name": "3. Вход с правильными данными",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Статус 200 OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Ответ содержит JWT токен', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.success).to.be.true;",
+									"    pm.expect(response.data).to.have.property('token');",
+									"    pm.expect(response.data.token).to.be.a('string');",
+									"    pm.expect(response.data.token.length).to.be.above(20);",
+									"    pm.collectionVariables.set('token', response.data.token);",
+									"});",
+									"",
+									"pm.test('Ответ содержит данные пользователя', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.data).to.have.property('user');",
+									"    pm.expect(response.data.user).to.have.property('id');",
+									"    pm.expect(response.data.user).to.have.property('email');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "login"]
+						}
+					}
+				},
+				{
+					"name": "4. Доступ к защищённому пути без токена",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Статус 401 Unauthorized', function () {",
+									"    pm.response.to.have.status(401);",
+									"});",
+									"",
+									"pm.test('Ответ содержит success: false', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.success).to.be.false;",
+									"});",
+									"",
+									"pm.test('Ответ содержит код ошибки UNAUTHORIZED', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.error.code).to.equal('UNAUTHORIZED');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/profile",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "profile"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Тесты на оценку 4 - Заказы",
+			"item": [
+				{
+					"name": "1. Создание заказа для авторизованного пользователя",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Статус 201 Created', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test('Ответ содержит success: true', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Заказ создан со статусом created', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.data).to.have.property('id');",
+									"    pm.expect(response.data.status).to.equal('created');",
+									"    pm.expect(response.data).to.have.property('userId');",
+									"    pm.expect(response.data).to.have.property('items');",
+									"    pm.expect(response.data).to.have.property('totalAmount');",
+									"    pm.collectionVariables.set('orderId', response.data.id);",
+									"});",
+									"",
+									"pm.test('Сумма заказа рассчитана корректно', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.data.totalAmount).to.equal(1550);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"items\": [\n    {\n      \"productName\": \"Laptop\",\n      \"quantity\": 1,\n      \"price\": 1500\n    },\n    {\n      \"productName\": \"Mouse\",\n      \"quantity\": 2,\n      \"price\": 25\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/orders",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "orders"]
+						}
+					}
+				},
+				{
+					"name": "2. Получение своего заказа",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Статус 200 OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Ответ содержит заказ с корректным ID', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.success).to.be.true;",
+									"    pm.expect(response.data.id).to.equal(pm.collectionVariables.get('orderId'));",
+									"});",
+									"",
+									"pm.test('Заказ содержит все необходимые поля', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.data).to.have.property('userId');",
+									"    pm.expect(response.data).to.have.property('items');",
+									"    pm.expect(response.data).to.have.property('status');",
+									"    pm.expect(response.data).to.have.property('totalAmount');",
+									"    pm.expect(response.data).to.have.property('createdAt');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/orders/{{orderId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "orders", "{{orderId}}"]
+						}
+					}
+				},
+				{
+					"name": "3. Список своих заказов с пагинацией",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Статус 200 OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Ответ содержит корректные поля пагинации', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.success).to.be.true;",
+									"    pm.expect(response).to.have.property('data');",
+									"    pm.expect(response).to.have.property('meta');",
+									"});",
+									"",
+									"pm.test('Meta содержит информацию о навигации', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.meta).to.have.property('page');",
+									"    pm.expect(response.meta).to.have.property('limit');",
+									"    pm.expect(response.meta).to.have.property('totalPages');",
+									"    pm.expect(response.meta).to.have.property('totalItems');",
+									"    pm.expect(response.meta.page).to.equal(1);",
+									"    pm.expect(response.meta.limit).to.equal(10);",
+									"});",
+									"",
+									"pm.test('Data содержит массив заказов', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.data).to.be.an('array');",
+									"    pm.expect(response.data.length).to.be.at.least(1);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/orders?page=1&limit=10&sort=createdAt_desc",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "orders"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								},
+								{
+									"key": "sort",
+									"value": "createdAt_desc"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Тесты на оценку 5 - Права доступа",
+			"item": [
+				{
+					"name": "Подготовка: Регистрация второго пользователя",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Второй пользователь зарегистрирован', function () {",
+									"    pm.response.to.have.status(201);",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('userId2', response.data.id);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"another@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"Another User\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/register",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "register"]
+						}
+					}
+				},
+				{
+					"name": "Подготовка: Вход второго пользователя",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Второй пользователь получил токен', function () {",
+									"    pm.response.to.have.status(200);",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('token2', response.data.token);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"another@example.com\",\n  \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "login"]
+						}
+					}
+				},
+				{
+					"name": "1. Попытка обновить чужой заказ",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Статус 400 или 403 (отказ)', function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([400, 403, 404]);",
+									"});",
+									"",
+									"pm.test('Ответ содержит success: false', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.success).to.be.false;",
+									"});",
+									"",
+									"pm.test('Ответ содержит описание ошибки доступа', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.error).to.have.property('code');",
+									"    pm.expect(response.error).to.have.property('message');",
+									"    const message = response.error.message.toLowerCase();",
+									"    pm.expect(message).to.satisfy(msg => {",
+									"        return msg.includes('access denied') || ",
+									"               msg.includes('denied') || ",
+									"               msg.includes('not found');",
+									"    });",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token2}}",
+								"description": "Токен ВТОРОГО пользователя"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"in_progress\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/orders/{{orderId}}/status",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "orders", "{{orderId}}", "status"],
+							"description": "Попытка обновить заказ ПЕРВОГО пользователя токеном ВТОРОГО"
+						}
+					}
+				},
+				{
+					"name": "2. Отмена собственного заказа",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Статус 200 OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Заказ переведён в статус cancelled', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.success).to.be.true;",
+									"    pm.expect(response.data.status).to.equal('cancelled');",
+									"});",
+									"",
+									"pm.test('ID заказа остался прежним (нет побочных эффектов)', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.data.id).to.equal(pm.collectionVariables.get('orderId'));",
+									"});",
+									"",
+									"pm.test('Все поля заказа присутствуют', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.data).to.have.property('userId');",
+									"    pm.expect(response.data).to.have.property('items');",
+									"    pm.expect(response.data).to.have.property('totalAmount');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"description": "Токен ПЕРВОГО пользователя (владельца)"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/orders/{{orderId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "orders", "{{orderId}}"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Дополнительные проверки",
+			"item": [
+				{
+					"name": "Gateway Health Check",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Gateway работает', function () {",
+									"    pm.response.to.have.status(200);",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.status).to.equal('ok');",
+									"    pm.expect(response.service).to.equal('gateway');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": ["{{baseUrl}}"],
+							"path": ["health"]
+						}
+					}
+				}
+			]
+		}
+	]
+}
